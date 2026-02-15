@@ -31,6 +31,8 @@ SCRAPE_DELAY_MAX = int(os.environ.get("SCRAPE_DELAY_MAX", 8))
 BACKOFF_BASE = 2
 MAX_RETRIES = 3
 
+USERNAME_RE = re.compile(r"^[A-Za-z0-9._-]{1,32}$")
+
 app = Flask(__name__)
 
 
@@ -393,17 +395,35 @@ def api_scrape():
     username = data.get("username", "").strip().replace("@", "")
     if not username:
         return jsonify({"error": "username required"}), 400
+    if not USERNAME_RE.match(username):
+        return jsonify({"error": "Invalid username format"}), 400
     try:
         props = scrape_profile(username)
         count = extract_and_store(username, props)
         return jsonify({"message": f"Scraped {count} spotlights from @{username}", "count": count})
+    except requests.RequestException:
+        db = get_db()
+        db.execute("INSERT INTO scrape_log (username, status, error_message) VALUES (?, 'error', ?)",
+                    (username, "Network error during scrape"))
+        db.commit()
+        db.close()
+        return jsonify({"error": "Failed to scrape profile. It may be private or unavailable."}), 502
+    except (ValueError, KeyError, json.JSONDecodeError):
+        db = get_db()
+        db.execute("INSERT INTO scrape_log (username, status, error_message) VALUES (?, 'error', ?)",
+                    (username, "Parse error"))
+        db.commit()
+        db.close()
+        return jsonify({"error": "Could not parse profile data"}), 500
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         db = get_db()
         db.execute("INSERT INTO scrape_log (username, status, error_message) VALUES (?, 'error', ?)",
                     (username, str(e)))
         db.commit()
         db.close()
-        return jsonify({"error": str(e)}), 500
+        return jsonify({"error": "Internal server error"}), 500
 
 
 @app.route("/api/scrape-watchlist", methods=["POST"])

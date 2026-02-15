@@ -1,0 +1,10 @@
+# Snapchat Watchlist - one username per line
+# Lines starting with # are ignored
+mrbeast
+djkhaled
+charlidamelio
+addisonre
+kingbach
+jasonderulo
+spencerx
+bfranklinmusic

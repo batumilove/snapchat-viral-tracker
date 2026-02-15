@@ -1,0 +1,21 @@
+version: "3.8"
+
+services:
+  snapchat-tracker:
+    build: .
+    container_name: snapchat-tracker
+    restart: unless-stopped
+    ports:
+      - "5007:5000"
+    volumes:
+      - ./data:/data
+      - ./watchlist.txt:/app/watchlist.txt:ro
+    environment:
+      - SCRAPE_DELAY_MIN=3
+      - SCRAPE_DELAY_MAX=8
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:5000/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
